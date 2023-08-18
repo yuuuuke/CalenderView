@@ -10,7 +10,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            CalenderView(DataBean(Day(2023, 7, 17)))
+            CalenderView(DataBean(Day(2023, 7, 17)), {}, {})
         }
     }
 }

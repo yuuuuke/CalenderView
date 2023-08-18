@@ -2,17 +2,17 @@ package com.zhpew.Calendar.widget
 
 import android.util.Log
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.material.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
@@ -28,31 +28,60 @@ import java.util.Calendar
 
 val WEEK = arrayOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
 
-// 年份范围，本年+前range年+后range年
 val RANGE = 3
-
 
 @OptIn(ExperimentalPagerApi::class)
 @Composable
-public fun CalenderView(initData: DataBean) {
+public fun CalenderView(
+    initData: DataBean,
+    onMouthChange: (day: Day) -> Unit,
+    onSelectedDayChange: (day: Day) -> Unit
+) {
 
     val initIndex = initData.initDay.mouth + RANGE * 12
     val pageCount = 12 + RANGE * 12 * 2
     val selectedItem = remember {
         mutableStateOf(initData.initDay)
     }
+    val toIndex = remember {
+        mutableStateOf(0)
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         TitleView()
         val pagerState = rememberPagerState(pageCount = pageCount, initialPage = initIndex)
+        LaunchedEffect(pagerState.currentPage) {
+            val diffYear = (initData.initDay.mouth + pagerState.currentPage - initIndex) / 12
+            val diffMouth = (initData.initDay.mouth + pagerState.currentPage - initIndex) % 12
+            val thisDate =
+                initData.initDay.copy(
+                    year = initData.initDay.year + diffYear,
+                    mouth = diffMouth,
+                    day = 1
+                )
+            onMouthChange(thisDate)
+            if (selectedItem.value.year != thisDate.year || selectedItem.value.mouth != thisDate.mouth) {
+                selectedItem.value = thisDate
+            }
+        }
+
+        LaunchedEffect(selectedItem.value) {
+            onSelectedDayChange(selectedItem.value)
+        }
+
+        LaunchedEffect(toIndex.value) {
+            if (toIndex.value + initIndex>= 0 && toIndex.value < pagerState.pageCount) {
+                pagerState.animateScrollToPage(page = toIndex.value + initIndex)
+            }
+        }
 
         HorizontalPager(
             state = pagerState,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(500.dp),
+                .wrapContentHeight(),
         ) {
-            DataView(initData.initDay, it - initIndex)
+            DataView(initData.initDay, it - initIndex, selectedItem, toIndex)
         }
     }
 }
@@ -83,7 +112,13 @@ private fun TitleView() {
 }
 
 @Composable
-private fun DataView(day: Day, index: Int) {
+private fun DataView(
+    day: Day,
+    index: Int,
+    selectedItem: MutableState<Day>,
+    toIndex: MutableState<Int>,
+) {
+
     // get this mouth
     val diffYear = (day.mouth + index) / 12
     val diffMouth = (day.mouth + index) % 12
@@ -129,7 +164,7 @@ private fun DataView(day: Day, index: Int) {
             }
         } else {
             for (i in 1..diffDay) {
-                data.add(Day(thisDate.year + 1, thisDate.mouth + 1, i))
+                data.add(Day(thisDate.year, thisDate.mouth + 1, i))
             }
         }
     }
@@ -150,11 +185,29 @@ private fun DataView(day: Day, index: Int) {
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight()
+                                .padding(5.dp)
+                                .clip(RoundedCornerShape(5.dp))
                                 .background(
-                                    color = colorResource(
+                                    color = if (data[it * 7 + i] == selectedItem.value) colorResource(
                                         id = R.color.teal_700
+                                    ) else colorResource(
+                                        id = R.color.purple_200
                                     )
-                                ),
+                                )
+                                .clickable(interactionSource = MutableInteractionSource(), null) {
+                                    if (data[it * 7 + i].year != thisDate.year || data[it * 7 + i].mouth != thisDate.mouth) {
+                                        // not this mouth ,need scroll
+                                        if (data[it * 7 + i].day > 15) {
+                                            // to last mouth
+                                            toIndex.value = index - 1
+                                        } else {
+                                            // to next mouth
+                                            toIndex.value = index + 1
+                                        }
+                                    }
+                                    selectedItem.value = data[it * 7 + i]
+                                    Log.v("zwp","click + " + data[it * 7 + i])
+                                },
                             content = "${data[it * 7 + i].day}",
                             textStyle = TextStyle(
                                 color = if (data[it * 7 + i].mouth == thisDate.mouth)
@@ -170,12 +223,4 @@ private fun DataView(day: Day, index: Int) {
                 }
             }
         })
-}
-
-/**
- * 三种样式，本月，上个/下个月，选中
- */
-@Composable
-private fun Date(state: Int) {
-
 }
