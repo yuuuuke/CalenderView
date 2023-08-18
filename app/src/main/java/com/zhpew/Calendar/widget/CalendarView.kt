@@ -47,7 +47,7 @@ public fun CalenderView(
         mutableStateOf(0)
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxWidth().wrapContentHeight()) {
         TitleView()
         val pagerState = rememberPagerState(pageCount = pageCount, initialPage = initIndex)
         LaunchedEffect(pagerState.currentPage) {
@@ -172,7 +172,7 @@ private fun DataView(
     LazyColumn(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxHeight(),
+            .height(240.dp),
         content = {
             items(data.size / 7) {
                 Row(
@@ -206,7 +206,6 @@ private fun DataView(
                                         }
                                     }
                                     selectedItem.value = data[it * 7 + i]
-                                    Log.v("zwp","click + " + data[it * 7 + i])
                                 },
                             content = "${data[it * 7 + i].day}",
                             textStyle = TextStyle(
